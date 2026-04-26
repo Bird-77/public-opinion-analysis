@@ -63,6 +63,4 @@ Vercel / Netlify
 直接拖拽 index.html 文件即可部署。
 
 
-许可证
-MIT License
 作者 bird-77
