@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>舆情分析平台</title>
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <!-- ECharts CDN -->
+  <script src="https://unpkg.com/echarts@5.4.3/dist/echarts.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    /* 头部样式 */
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .header h1 {
+      color: #fff;
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .header p {
+      color: rgba(255,255,255,0.9);
+      font-size: 1.1rem;
+    }
+    
+    /* 搜索区域 */
+    .search-section {
+      background: rgba(255,255,255,0.95);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    }
+    
+    .search-box {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    
+    .keyword-input {
+      flex: 1;
+      min-width: 200px;
+      padding: 14px 20px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 1rem;
+      transition: all 0.3s;
+      outline: none;
+    }
+    
+    .keyword-input:focus {
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102,126,234,0.2);
+    }
+    
+    .platform-select {
+      padding: 14px 20px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 1rem;
+      background: #fff;
+      cursor: pointer;
+      outline: none;
+      min-width: 140px;
+    }
+    
+    .analyze-btn {
+      padding: 14px 32px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .analyze-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102,126,234,0.4);
+    }
+    
+    .analyze-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    .mode-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #666;
+      font-size: 0.9rem;
+    }
+    
+    .mode-toggle input {
+      cursor: pointer;
+    }
+    
+    /* 加载动画 */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    
+    .loading-spinner {
+      background: #fff;
+      padding: 40px 60px;
+      border-radius: 16px;
+      text-align: center;
+    }
+    
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #e0e0e0;
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* 结果区域 */
+    .results-section {
+      display: none;
+    }
+    
+    .results-section.active {
+      display: block;
+    }
+    
+    /* 图表网格 */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    
+    @media (max-width: 900px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .chart-card {
+      background: rgba(255,255,255,0.95);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    }
+    
+    .chart-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .chart-title::before {
+      content: '';
+      width: 4px;
+      height: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 2px;
+    }
+    
+    .chart-container {
+      width: 100%;
+      height: 300px;
+    }
+    
+    /* 数据列表 */
+    .data-list-card {
+      background: rgba(255,255,255,0.95);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+      margin-bottom: 24px;
+    }
+    
+    .data-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+    
+    .data-item {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      gap: 12px;
+      transition: all 0.2s;
+    }
+    
+    .data-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .sentiment-badge {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+      height: fit-content;
+    }
+    
+    .sentiment-positive {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .sentiment-neutral {
+      background: #fff3cd;
+      color: #856404;
+    }
+    
+    .sentiment-negative {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .data-content {
+      flex: 1;
+    }
+    
+    .data-title {
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    
+    .data-stats {
+      display: flex;
+      gap: 16px;
+      font-size: 0.85rem;
+      color: #666;
+    }
+    
+    .data-stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .platform-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #e9ecef;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      color: #495057;
+    }
+    
+    /* 统计概览 */
+    .stats-overview {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    
+    @media (max-width: 768px) {
+      .stats-overview {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    .stat-card {
+      background: rgba(255,255,255,0.95);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .stat-label {
+      color: #666;
+      font-size: 0.9rem;
+      margin-top: 4px;
+    }
+    
+    /* 空状态 */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: rgba(255,255,255,0.8);
+    }
+    
+    .empty-icon {
+      font-size: 4rem;
+      margin-bottom: 16px;
+    }
+    
+    .empty-text {
+      font-size: 1.2rem;
+    }
+    
+    /* API配置提示 */
+    .api-hint {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+      color: #856404;
+      display: none;
+    }
+    
+    .api-hint.active {
+      display: block;
+    }
+    
+    /* 页脚 */
+    .footer {
+      text-align: center;
+      padding: 20px;
+      color: rgba(255,255,255,0.7);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <!-- 头部 -->
+      <header class="header">
+        <h1>🔍 舆情分析平台</h1>
+        <p>输入关键词，快速分析社交媒体舆情态势</p>
+      </header>
+      
+      <!-- 搜索区域 -->
+      <section class="search-section">
+        <div class="api-hint" :class="{ active: !isDemoMode }">
+          💡 API模式已启用，数据将从您的后端接口获取
+        </div>
+        <div class="search-box">
+          <input 
+            type="text" 
+            class="keyword-input" 
+            v-model="keyword" 
+            placeholder="请输入要分析的关键词，如：某产品、某事件..."
+            @keyup.enter="startAnalysis"
+          >
+          <select class="platform-select" v-model="selectedPlatform">
+            <option value="all">全平台</option>
+            <option value="bilibili">B站</option>
+            <option value="douyin">抖音</option>
+          </select>
+          <label class="mode-toggle">
+            <input type="checkbox" v-model="isDemoMode">
+            演示模式
+          </label>
+          <button class="analyze-btn" @click="startAnalysis" :disabled="!keyword.trim() || loading">
+            <span v-if="loading">分析中...</span>
+            <span v-else>开始分析</span>
+          </button>
+        </div>
+      </section>
+      
+      <!-- 空状态 -->
+      <div class="empty-state" v-if="!hasResults">
+        <div class="empty-icon">📊</div>
+        <p class="empty-text">输入关键词开始舆情分析</p>
+      </div>
+      
+      <!-- 结果区域 -->
+      <section class="results-section" :class="{ active: hasResults }" v-if="hasResults">
+        <!-- 统计概览 -->
+        <div class="stats-overview">
+          <div class="stat-card">
+            <div class="stat-value">{{ stats.totalPosts }}</div>
+            <div class="stat-label">相关帖子</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{{ stats.totalViews }}</div>
+            <div class="stat-label">总浏览量</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{{ stats.positiveRate }}%</div>
+            <div class="stat-label">正面占比</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{{ stats.engagementRate }}%</div>
+            <div class="stat-label">互动率</div>
+          </div>
+        </div>
+        
+        <!-- 图表网格 -->
+        <div class="charts-grid">
+          <!-- 情感分布饼图 -->
+          <div class="chart-card">
+            <div class="chart-title">📊 情感分布</div>
+            <div class="chart-container" ref="sentimentChartRef"></div>
+          </div>
+          
+          <!-- 声量趋势折线图 -->
+          <div class="chart-card">
+            <div class="chart-title">📈 声量趋势（近7天）</div>
+            <div class="chart-container" ref="trendChartRef"></div>
+          </div>
+          
+          <!-- 热词云图 -->
+          <div class="chart-card">
+            <div class="chart-title">🔤 热词云图</div>
+            <div class="chart-container" ref="wordCloudChartRef"></div>
+          </div>
+          
+          <!-- 平台对比柱状图 -->
+          <div class="chart-card">
+            <div class="chart-title">📱 平台对比</div>
+            <div class="chart-container" ref="platformChartRef"></div>
+          </div>
+        </div>
+        
+        <!-- 热门内容列表 -->
+        <div class="data-list-card">
+          <div class="chart-title">热门内容</div>
+          <div class="data-list">
+            <div class="data-item" v-for="(item, index) in hotPosts" :key="index">
+              <span :class="['sentiment-badge', 'sentiment-' + item.sentiment]">
+                {{ sentimentLabel(item.sentiment) }}
+              </span>
+              <div class="data-content">
+                <div class="data-title">{{ item.title }}</div>
+                <div class="data-stats">
+                  <span class="data-stat">👁 {{ formatNumber(item.views) }}</span>
+                  <span class="data-stat">❤️ {{ formatNumber(item.likes) }}</span>
+                  <span class="data-stat">💬 {{ formatNumber(item.comments) }}</span>
+                  <span class="platform-tag">{{ item.platform === 'bilibili' ? 'B站' : '抖音' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- 加载动画 -->
+      <div class="loading-overlay" v-if="loading">
+        <div class="loading-spinner">
+          <div class="spinner"></div>
+          <p>正在分析"{{ keyword }}"的舆情数据...</p>
+        </div>
+      </div>
+      
+      <!-- 页脚 -->
+      <footer class="footer">
+        <p>舆情分析平台 v1.0 | 数据仅供参考</p>
+      </footer>
+    </div>
+  </div>
+  
+  <script>
+    const { createApp, ref, onMounted, nextTick } = Vue;
+    
+    createApp({
+      setup() {
+        const keyword = ref('');
+        const selectedPlatform = ref('all');
+        const isDemoMode = ref(true);
+        const loading = ref(false);
+        const hasResults = ref(false);
+        
+        // 数据结果
+        const stats = ref({
+          totalPosts: 0,
+          totalViews: 0,
+          positiveRate: 0,
+          engagementRate: 0
+        });
+        const hotPosts = ref([]);
+        
+        // 图表DOM引用
+        const sentimentChartRef = ref(null);
+        const trendChartRef = ref(null);
+        const wordCloudChartRef = ref(null);
+        const platformChartRef = ref(null);
+        
+        // 图表实例
+        let sentimentChartInstance = null;
+        let trendChartInstance = null;
+        let wordCloudChartInstance = null;
+        let platformChartInstance = null;
+        
+        // 正面词库
+        const positiveWords = ['好', '棒', '推荐', '喜欢', '优秀', '满意', '赞', '不错', '给力', '牛', '强', '完美', '精彩', '优质', '良心', '值得', '超赞', '绝绝子', 'YYDS', '种草'];
+        // 负面词库
+        const negativeWords = ['差', '烂', '坑', '垃圾', '失望', '难用', '避雷', '翻车', '智商税', '骗人', '恶心', '无语', '后悔', '吐槽', '虚假', '坑爹', '太坑', '不推荐', '垃圾', '废物'];
+        
+        // 模拟数据生成
+        function generateMockData(kw) {
+          const now = new Date();
+          const posts = [];
+          
+          // 生成20-30条帖子
+          const postCount = Math.floor(Math.random() * 11) + 20;
+          for (let i = 0; i < postCount; i++) {
+            const platform = Math.random() > 0.5 ? 'bilibili' : 'douyin';
+            const views = Math.floor(Math.random() * 100000) + 1000;
+            const likes = Math.floor(views * (Math.random() * 0.1 + 0.01));
+            const comments = Math.floor(likes * (Math.random() * 0.3 + 0.1));
+            
+            // 随机选择情感
+            let sentiment = 'neutral';
+            const rand = Math.random();
+            if (rand < 0.4) sentiment = 'positive';
+            else if (rand < 0.75) sentiment = 'neutral';
+            else sentiment = 'negative';
+            
+            // 生成标题
+            const templates = [
+              `${kw}使用体验分享`,
+              `关于${kw}的测评`,
+              `${kw}到底怎么样`,
+              `入手${kw}一个月感受`,
+              `${kw}优缺点分析`,
+              `为什么我推荐${kw}`,
+              `${kw}使用教程`,
+              `${kw}深度体验`,
+              `${kw}避坑指南`,
+              `客观评价${kw}`
+            ];
+            
+            posts.push({
+              title: templates[Math.floor(Math.random() * templates.length)],
+              views,
+              likes,
+              comments,
+              platform,
+              sentiment
+            });
+          }
+          
+          // 生成7天趋势数据
+          const trendData = [];
+          for (let i = 6; i >= 0; i--) {
+            const date = new Date(now);
+            date.setDate(date.getDate() - i);
+            trendData.push({
+              date: `${date.getMonth() + 1}/${date.getDate()}`,
+              count: Math.floor(Math.random() * 50) + 20
+            });
+          }
+          
+          // 生成热词
+          const hotWords = [
+            { name: kw, value: 100 },
+            { name: '体验', value: 75 },
+            { name: '测评', value: 60 },
+            { name: '推荐', value: 55 },
+            { name: '优缺点', value: 45 },
+            { name: '入手', value: 40 },
+            { name: '使用', value: 38 },
+            { name: '效果', value: 35 },
+            { name: '质量', value: 32 },
+            { name: '价格', value: 30 },
+            { name: '性价比', value: 28 },
+            { name: '对比', value: 25 },
+            { name: '感受', value: 23 },
+            { name: '分享', value: 20 },
+            { name: '真实', value: 18 },
+            { name: '购买', value: 15 },
+            { name: '值不值', value: 12 },
+            { name: '种草', value: 10 }
+          ];
+          
+          // 平台数据
+          const bilibiliData = {
+            posts: Math.floor(postCount * 0.45),
+            views: Math.floor(Math.random() * 5000000) + 500000,
+            likes: Math.floor(Math.random() * 500000) + 50000,
+            comments: Math.floor(Math.random() * 80000) + 8000
+          };
+          const douyinData = {
+            posts: Math.floor(postCount * 0.55),
+            views: Math.floor(Math.random() * 10000000) + 1000000,
+            likes: Math.floor(Math.random() * 1000000) + 100000,
+            comments: Math.floor(Math.random() * 150000) + 15000
+          };
+          
+          // 计算情感分布
+          const sentimentCounts = { positive: 0, neutral: 0, negative: 0 };
+          posts.forEach(p => sentimentCounts[p.sentiment]++);
+          
+          return {
+            posts,
+            trendData,
+            hotWords,
+            bilibiliData,
+            douyinData,
+            sentimentCounts
+          };
+        }
+        
+        // 情感标签
+        function sentimentLabel(sentiment) {
+          const labels = { positive: '正面', neutral: '中性', negative: '负面' };
+          return labels[sentiment] || '未知';
+        }
+        
+        // 格式化数字
+        function formatNumber(num) {
+          if (num >= 100000000) return (num / 100000000).toFixed(1) + '亿';
+          if (num >= 10000) return (num / 10000).toFixed(1) + '万';
+          return num.toString();
+        }
+        
+        // 初始化图表
+        function initCharts(data) {
+          // 情感分布饼图
+          if (sentimentChartRef.value) {
+            if (sentimentChartInstance) {
+              sentimentChartInstance.dispose();
+            }
+            sentimentChartInstance = echarts.init(sentimentChartRef.value);
+            sentimentChartInstance.setOption({
+              tooltip: { 
+                trigger: 'item', 
+                formatter: '{b}: {c}条 ({d}%)',
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                borderColor: '#e0e0e0',
+                borderWidth: 1,
+                textStyle: { color: '#333' }
+              },
+              legend: { 
+                bottom: 10, 
+                left: 'center',
+                itemWidth: 12,
+                itemHeight: 12
+              },
+              color: ['#52c41a', '#faad14', '#f5222d'],
+              series: [{
+                type: 'pie',
+                radius: ['40%', '70%'],
+                center: ['50%', '45%'],
+                avoidLabelOverlap: false,
+                itemStyle: { 
+                  borderRadius: 10, 
+                  borderColor: '#fff', 
+                  borderWidth: 3 
+                },
+                label: { 
+                  show: true, 
+                  formatter: '{b}\n{d}%',
+                  fontSize: 14,
+                  fontWeight: 500
+                },
+                labelLine: {
+                  length: 15,
+                  length2: 10
+                },
+                emphasis: {
+                  label: {
+                    fontSize: 16,
+                    fontWeight: 'bold'
+                  },
+                  itemStyle: {
+                    shadowBlur: 10,
+                    shadowOffsetX: 0,
+                    shadowColor: 'rgba(0, 0, 0, 0.3)'
+                  }
+                },
+                data: [
+                  { value: data.sentimentCounts.positive, name: '正面' },
+                  { value: data.sentimentCounts.neutral, name: '中性' },
+                  { value: data.sentimentCounts.negative, name: '负面' }
+                ]
+              }]
+            });
+          }
+          
+          // 声量趋势折线图
+          if (trendChartRef.value) {
+            if (trendChartInstance) {
+              trendChartInstance.dispose();
+            }
+            trendChartInstance = echarts.init(trendChartRef.value);
+            trendChartInstance.setOption({
+              tooltip: { 
+                trigger: 'axis',
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                borderColor: '#e0e0e0',
+                borderWidth: 1,
+                textStyle: { color: '#333' },
+                formatter: function(params) {
+                  return params[0].name + '<br/>发帖数: <strong>' + params[0].value + '</strong> 条';
+                }
+              },
+              grid: { left: 50, right: 20, top: 20, bottom: 40 },
+              xAxis: {
+                type: 'category',
+                boundaryGap: false,
+                data: data.trendData.map(d => d.date),
+                axisLine: { lineStyle: { color: '#e0e0e0' } },
+                axisLabel: { color: '#666' }
+              },
+              yAxis: {
+                type: 'value',
+                axisLine: { show: false },
+                splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
+                axisLabel: { color: '#666' }
+              },
+              series: [{
+                data: data.trendData.map(d => d.count),
+                type: 'line',
+                smooth: true,
+                symbol: 'circle',
+                symbolSize: 8,
+                areaStyle: {
+                  color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: 'rgba(102,126,234,0.5)' },
+                    { offset: 1, color: 'rgba(102,126,234,0.05)' }
+                  ])
+                },
+                lineStyle: { color: '#667eea', width: 3 },
+                itemStyle: { 
+                  color: '#667eea',
+                  borderWidth: 2,
+                  borderColor: '#fff'
+                },
+                emphasis: {
+                  focus: 'series',
+                  itemStyle: {
+                    shadowBlur: 10,
+                    shadowColor: 'rgba(102,126,234,0.5)'
+                  }
+                }
+              }]
+            });
+          }
+          
+          // 热词云图（使用散点图模拟词云效果）
+          if (wordCloudChartRef.value) {
+            if (wordCloudChartInstance) {
+              wordCloudChartInstance.dispose();
+            }
+            wordCloudChartInstance = echarts.init(wordCloudChartRef.value);
+            
+            // 生成随机位置的热词数据
+            const wordCloudData = data.hotWords.map((w, i) => {
+              const angle = (i / data.hotWords.length) * Math.PI * 2;
+              const radius = 50 + Math.random() * 80;
+              return {
+                name: w.name,
+                value: w.value,
+                x: 200 + Math.cos(angle) * radius * (0.5 + Math.random() * 0.5),
+                y: 150 + Math.sin(angle) * radius * (0.5 + Math.random() * 0.5),
+                symbolSize: Math.max(30, Math.min(100, w.value * 0.8)),
+                itemStyle: {
+                  color: `hsl(${220 + i * 15}, 70%, ${50 + w.value * 0.2}%)`
+                }
+              };
+            });
+            
+            wordCloudChartInstance.setOption({
+              tooltip: { 
+                trigger: 'item', 
+                formatter: '{b}: {c}',
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                borderColor: '#e0e0e0',
+                borderWidth: 1,
+                textStyle: { color: '#333' }
+              },
+              xAxis: { 
+                show: false, 
+                type: 'value',
+                min: 0,
+                max: 400
+              },
+              yAxis: { 
+                show: false, 
+                type: 'value',
+                min: 0,
+                max: 300
+              },
+              series: [{
+                type: 'scatter',
+                symbol: 'circle',
+                data: wordCloudData,
+                label: {
+                  show: true,
+                  formatter: '{b}',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: '#333'
+                },
+                itemStyle: {
+                  shadowBlur: 10,
+                  shadowColor: 'rgba(102,126,234,0.3)'
+                },
+                emphasis: {
+                  label: {
+                    fontSize: 16,
+                    fontWeight: 'bold'
+                  }
+                }
+              }]
+            });
+          }
+          
+          // 平台对比柱状图
+          if (platformChartRef.value) {
+            if (platformChartInstance) {
+              platformChartInstance.dispose();
+            }
+            platformChartInstance = echarts.init(platformChartRef.value);
+            platformChartInstance.setOption({
+              tooltip: { 
+                trigger: 'axis', 
+                axisPointer: { type: 'shadow' },
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                borderColor: '#e0e0e0',
+                borderWidth: 1,
+                textStyle: { color: '#333' }
+              },
+              legend: { 
+                data: ['B站', '抖音'], 
+                bottom: 0,
+                itemWidth: 16,
+                itemHeight: 10
+              },
+              grid: { left: 60, right: 20, top: 20, bottom: 50 },
+              xAxis: {
+                type: 'category',
+                data: ['帖子数', '浏览量(万)', '点赞(万)', '评论(万)'],
+                axisLine: { lineStyle: { color: '#e0e0e0' } },
+                axisLabel: { color: '#666', interval: 0 }
+              },
+              yAxis: {
+                type: 'value',
+                axisLine: { show: false },
+                splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
+                axisLabel: { color: '#666' }
+              },
+              series: [
+                {
+                  name: 'B站',
+                  type: 'bar',
+                  barWidth: '35%',
+                  data: [
+                    data.bilibiliData.posts,
+                    (data.bilibiliData.views / 10000).toFixed(1),
+                    (data.bilibiliData.likes / 10000).toFixed(1),
+                    (data.bilibiliData.comments / 10000).toFixed(1)
+                  ],
+                  itemStyle: { 
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                      { offset: 0, color: '#fb7299' },
+                      { offset: 1, color: '#ff9eb5' }
+                    ]),
+                    borderRadius: [6, 6, 0, 0] 
+                  },
+                  emphasis: {
+                    itemStyle: {
+                      shadowBlur: 10,
+                      shadowColor: 'rgba(251,114,153,0.5)'
+                    }
+                  }
+                },
+                {
+                  name: '抖音',
+                  type: 'bar',
+                  barWidth: '35%',
+                  data: [
+                    data.douyinData.posts,
+                    (data.douyinData.views / 10000).toFixed(1),
+                    (data.douyinData.likes / 10000).toFixed(1),
+                    (data.douyinData.comments / 10000).toFixed(1)
+                  ],
+                  itemStyle: { 
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                      { offset: 0, color: '#25F4EE' },
+                      { offset: 1, color: '#7FFAF4' }
+                    ]),
+                    borderRadius: [6, 6, 0, 0] 
+                  },
+                  emphasis: {
+                    itemStyle: {
+                      shadowBlur: 10,
+                      shadowColor: 'rgba(37,244,238,0.5)'
+                    }
+                  }
+                }
+              ]
+            });
+          }
+        }
+        
+        // 开始分析
+        async function startAnalysis() {
+          if (!keyword.value.trim()) return;
+          
+          loading.value = true;
+          hasResults.value = false;
+          
+          // 模拟加载延迟
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          let analysisData;
+          
+          if (isDemoMode.value) {
+            // 演示模式：使用模拟数据
+            analysisData = generateMockData(keyword.value.trim());
+          } else {
+            // API模式：调用后端接口（这里预留，实际需要用户配置）
+            try {
+              const response = await fetch('/api/sentiment-analysis', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  keyword: keyword.value.trim(),
+                  platform: selectedPlatform.value
+                })
+              });
+              analysisData = await response.json();
+            } catch (e) {
+              console.error('API调用失败，使用演示数据:', e);
+              analysisData = generateMockData(keyword.value.trim());
+            }
+          }
+          
+          // 更新统计数据
+          stats.value = {
+            totalPosts: analysisData.posts.length,
+            totalViews: formatNumber(
+              analysisData.bilibiliData.views + analysisData.douyinData.views
+            ),
+            positiveRate: Math.round(
+              (analysisData.sentimentCounts.positive / analysisData.posts.length) * 100
+            ),
+            engagementRate: Math.round(Math.random() * 5 + 2)
+          };
+          
+          // 筛选平台数据
+          let filteredPosts = analysisData.posts;
+          if (selectedPlatform.value !== 'all') {
+            filteredPosts = analysisData.posts.filter(p => p.platform === selectedPlatform.value);
+          }
+          
+          // 按互动量排序，取前12条
+          hotPosts.value = filteredPosts
+            .sort((a, b) => (b.likes + b.comments) - (a.likes + a.comments))
+            .slice(0, 12);
+          
+          loading.value = false;
+          hasResults.value = true;
+          
+          // 等待DOM更新后初始化图表
+          await nextTick();
+          
+          // 初始化图表
+          initCharts(analysisData);
+          
+          // 响应窗口变化
+          window.addEventListener('resize', () => {
+            sentimentChartInstance && sentimentChartInstance.resize();
+            trendChartInstance && trendChartInstance.resize();
+            wordCloudChartInstance && wordCloudChartInstance.resize();
+            platformChartInstance && platformChartInstance.resize();
+          });
+        }
+        
+        onMounted(() => {
+          // 页面加载完成
+        });
+        
+        return {
+          keyword,
+          selectedPlatform,
+          isDemoMode,
+          loading,
+          hasResults,
+          stats,
+          hotPosts,
+          sentimentChartRef,
+          trendChartRef,
+          wordCloudChartRef,
+          platformChartRef,
+          startAnalysis,
+          sentimentLabel,
+          formatNumber
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
